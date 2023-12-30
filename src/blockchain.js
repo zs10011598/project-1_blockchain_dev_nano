@@ -64,28 +64,28 @@ class Blockchain {
     _addBlock(block) {
         let self = this;
         return new Promise(async (resolve, reject) => {
-            block.hash = SHA256(block.body).toString();
             block.time = Math.floor(Date.now() / 1000);
             self.height += 1;
+            block.height = self.height;
+            if(self.height == 0) {
+                block.previousBlockHash = null;
+            } else {
+                block.previousBlockHash = self.chain[self.height - 1].hash
+            }
+            block.hash = SHA256(JSON.stringify(block)).toString();
             self.chain.push(block);
-            if(self.height == 0){
+            if(block.validate()){
+                self.validateChain().then(errorLogs => {
+                    if(errorLogs.length > 0){
+                        reject(errorLogs);
+                    }
+                }).catch(err => {
+                    reject(err);
+                })
                 resolve(block);
             } else {
-                if(block.validate()){
-                    block.height = self.height;
-                    block.previousBlockHash = self.chain[self.height - 1].hash
-                    self.validateChain().then(errorLogs => {
-                        if(errorLogs.length > 0){
-                            reject(errorLogs);
-                        }
-                    }).catch(err => {
-                        reject(err);
-                    })
-                    resolve(block);
-                } else {
-                    reject(new Error('Tampered block!'));
-                }
-           }
+                reject(new Error('Tampered block!'));
+            }
         });
     }
 
@@ -184,7 +184,7 @@ class Blockchain {
         let self = this;
         let stars = [];
         return new Promise((resolve, reject) => {
-            stars = self.chain.filter((block) => block.getBData().owner == address);
+            stars = self.chain.filter((block) => block.getBData().owner == address).map(block => block.getBData());
             resolve(stars);
         });
     }
